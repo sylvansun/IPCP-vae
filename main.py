@@ -5,7 +5,7 @@ import torchvision
 from torch.utils.data import DataLoader
 import utils
 
-
+device = 'cuda'
 class VAE(nn.Module):
     """Implementation of VAE(Variational Auto-Encoder)"""
     def __init__(self):
@@ -30,7 +30,7 @@ class VAE(nn.Module):
 
     def reparametrize(self, mu, log_std):
         std = torch.exp(log_std)
-        eps = torch.randn_like(std)  # simple from standard normal distribution
+        eps = torch.randn_like(std)  # sample from standard normal distribution
         z = mu + eps * std
         return z
 
@@ -67,7 +67,7 @@ if __name__ == '__main__':
 
     data_loader = DataLoader(train_data, batch_size=100, shuffle=True)
 
-    vae = VAE()
+    vae = VAE().to(device)
 
     optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
 
@@ -76,7 +76,9 @@ if __name__ == '__main__':
         i = 0
         for batch_id, data in enumerate(data_loader):
             img, _ = data
-            inputs = img.reshape(img.shape[0], -1)
+            # print(img.shape)
+            inputs = img.reshape(img.shape[0], -1).to(device)
+            # print(inputs.shape)
             recon, mu, log_std = vae(inputs)
             loss = vae.loss_function(recon, inputs, mu, log_std)
 
@@ -100,7 +102,14 @@ if __name__ == '__main__':
             path = "./img/vae/epoch{}.png".format(epoch+1)
             torchvision.utils.save_image(imgs, path, nrow=10)
             print("save:", path, "\n")
-            linear_recons = vae.decode(torch.linspace(-5, 5, 800).view(-1, 2))
+            gaussian = torch.linspace(-5, 5, 800).view(-1, 2).to(device)
+            g = (torch.tensor([(x, y) for y in range(20) for x in range(20)]).to(device,dtype=torch.float32).reshape((400, 2)) - 10)/2
+            # print(gaussian)
+            # print(gaussian.shape)
+            # print(g.shape)
+            # print(g)
+            # assert False
+            linear_recons = vae.decode(g)
             linear_imgs = utils.to_img(linear_recons.detach())
             linear_path = "./img/vae/linear_epoch{}.png".format(epoch+1)
             torchvision.utils.save_image(linear_imgs, linear_path, nrow=20)
