@@ -85,7 +85,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(vae.parameters(), lr=lr)
 
     for epoch in range(epochs):
-        for _, img, _ in enumerate(data_loader):
+        for _, (img, _) in enumerate(data_loader):
             inputs = img.reshape(img.shape[0], -1).to(device)
             recon_img, mu, log_std = vae(inputs)
             loss = vae.loss_function(recon_img, inputs, mu, log_std)
@@ -93,7 +93,8 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
+            
+        
         if epoch % 10 == 0:
             print("Epoch[{}/{}], loss: {:.3f}".format(epoch+1, epochs, loss.item()))
             imgs = to_img(recon_img.detach())
