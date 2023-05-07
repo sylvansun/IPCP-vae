@@ -12,11 +12,11 @@ class VAE(nn.Module):
     def __init__(self, in_dim=784, h_dim=256, z_dim=2):
         super(VAE, self).__init__()
 
-        self.fc1 = nn.Linear(784, 256)
-        self.fc2_mu = nn.Linear(256, z_dim)
-        self.fc2_log_std = nn.Linear(256, z_dim)
-        self.fc3 = nn.Linear(z_dim, 256)
-        self.fc4 = nn.Linear(256, 784)
+        self.fc1 = nn.Linear(in_dim, h_dim)
+        self.fc2_mu = nn.Linear(h_dim, z_dim)
+        self.fc2_log_std = nn.Linear(h_dim, z_dim)
+        self.fc3 = nn.Linear(z_dim, h_dim)
+        self.fc4 = nn.Linear(h_dim, in_dim)
 
     def encode(self, x):
         h1 = F.relu(self.fc1(x))
@@ -53,9 +53,6 @@ def to_img(x):
     imgs = x.reshape(x.shape[0], 1, 28, 28)
     return imgs
 
-def make_dir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -73,12 +70,12 @@ if __name__ == '__main__':
     img = None
     linspace_data = None
 
-    
-    make_dir("./img/vae_{}".format(z_dim))
-    make_dir("./model_weights/vae_{}".format(z_dim))
-
+    file_path = "./img/vae_{}".format(z_dim)
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
     train_data = torchvision.datasets.MNIST(root='./data', train=True, transform=torchvision.transforms.ToTensor(), download=True)
     data_loader = DataLoader(train_data, batch_size=100, shuffle=True)
+    
     if z_dim == 2:
         linspace_data = (torch.tensor([(x, y) for y in range(20) for x in range(20)]).to(device,dtype=torch.float32).reshape((400, 2)) - 10)/2
     elif z_dim == 1:
@@ -92,9 +89,7 @@ if __name__ == '__main__':
         i = 0
         for batch_id, data in enumerate(data_loader):
             img, _ = data
-            # print(img.shape)
             inputs = img.reshape(img.shape[0], -1).to(device)
-            # print(inputs.shape)
             recon, mu, log_std = vae(inputs)
             loss = vae.loss_function(recon, inputs, mu, log_std)
 
@@ -126,6 +121,3 @@ if __name__ == '__main__':
                 print("save:", linear_path, "\n")
 
     torchvision.utils.save_image(img, "./img/vae_{}/raw.png".format(z_dim), nrow=10)
-
-    # save val model
-    # torch.save(vae, "./model_weights/vae/vae_weights.pth")
