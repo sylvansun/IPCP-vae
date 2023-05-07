@@ -5,7 +5,7 @@ import torchvision
 from torch.utils.data import DataLoader
 import utils
 
-device = 'cuda'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 class VAE(nn.Module):
     """Implementation of VAE(Variational Auto-Encoder)"""
     def __init__(self):
