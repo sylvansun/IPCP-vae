@@ -1,20 +1,21 @@
 import os
 import torch
-from torch import nn
-import torch.nn.functional as F
+import argparse
 import torchvision
+import torch.nn.functional as F
+from torch import nn
 from torch.utils.data import DataLoader
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class VAE(nn.Module):
-    def __init__(self,in_dim=784, h_dim=256, z_dim=2):
+    def __init__(self, in_dim=784, h_dim=256, z_dim=2):
         super(VAE, self).__init__()
 
         self.fc1 = nn.Linear(784, 256)
-        self.fc2_mu = nn.Linear(256, 2)
-        self.fc2_log_std = nn.Linear(256, 2)
-        self.fc3 = nn.Linear(2, 256)
+        self.fc2_mu = nn.Linear(256, z_dim)
+        self.fc2_log_std = nn.Linear(256, z_dim)
+        self.fc3 = nn.Linear(z_dim, 256)
         self.fc4 = nn.Linear(256, 784)
 
     def encode(self, x):
@@ -57,30 +58,36 @@ def make_dir(path):
         os.makedirs(path)
 
 if __name__ == '__main__':
-    epochs = 100
-    batch_size = 100
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--batch_size', type=int, default=100)
+    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--z_dim', type=int, default=2)
+    parser.add_argument('--h_dim', type=int, default=256)
+    parser.add_argument('--in_dim', type=int, default=784)
+    args = parser.parse_args()
+    
+    epochs, batch_size, lr, z_dim, h_dim, in_dim = args.epochs, args.batch_size, args.lr, args.z_dim, args.h_dim, args.in_dim
 
     recon = None
     img = None
+    linspace_data = None
 
     
-    make_dir("./img/vae")
-    make_dir("./model_weights/vae")
+    make_dir("./img/vae_{}".format(z_dim))
+    make_dir("./model_weights/vae_{}".format(z_dim))
 
-    train_data = torchvision.datasets.MNIST(
-        root='./data',
-        train=True,
-        transform=torchvision.transforms.ToTensor(),
-        download=True
-    )
-
+    train_data = torchvision.datasets.MNIST(root='./data', train=True, transform=torchvision.transforms.ToTensor(), download=True)
     data_loader = DataLoader(train_data, batch_size=100, shuffle=True)
+    if z_dim == 2:
+        linspace_data = (torch.tensor([(x, y) for y in range(20) for x in range(20)]).to(device,dtype=torch.float32).reshape((400, 2)) - 10)/2
+    elif z_dim == 1:
+        linspace_data = torch.linspace(-3, 3, 400).to(device,dtype=torch.float32).reshape((400, 1))
+    
+    vae = VAE(in_dim=in_dim, h_dim=h_dim, z_dim=z_dim).to(device)
+    optimizer = torch.optim.Adam(vae.parameters(), lr=lr)
 
-    vae = VAE().to(device)
-
-    optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
-
-    for epoch in range(100):
+    for epoch in range(epochs):
         train_loss = 0
         i = 0
         for batch_id, data in enumerate(data_loader):
@@ -108,18 +115,17 @@ if __name__ == '__main__':
         if epoch % 10 == 0:
             imgs = to_img(recon.detach())
             print(recon.shape)
-            path = "./img/vae/epoch{}.png".format(epoch+1)
+            path = "./img/vae_{}/epoch{}.png".format(z_dim, epoch+1)
             torchvision.utils.save_image(imgs, path, nrow=10)
             print("save:", path, "\n")
-            g = (torch.tensor([(x, y) for y in range(20) for x in range(20)]).to(device,dtype=torch.float32).reshape((400, 2)) - 10)/2
-            linear_recons = vae.decode(g)
-            linear_imgs = to_img(linear_recons.detach())
-            linear_path = "./img/vae/linear_epoch{}.png".format(epoch+1)
-            torchvision.utils.save_image(linear_imgs, linear_path, nrow=20)
-            print("save:", linear_path, "\n")
+            if z_dim == 2 or z_dim == 1:
+                linear_recons = vae.decode(linspace_data)
+                linear_imgs = to_img(linear_recons.detach())
+                linear_path = "./img/vae_{}/manifold_epoch{}.png".format(z_dim, epoch+1)
+                torchvision.utils.save_image(linear_imgs, linear_path, nrow=20)
+                print("save:", linear_path, "\n")
 
-    torchvision.utils.save_image(img, "./img/vae/raw.png", nrow=10)
-    print("save raw image:./img/vae/raw/png", "\n")
+    torchvision.utils.save_image(img, "./img/vae_{}/raw.png".format(z_dim), nrow=10)
 
     # save val model
-    torch.save(vae, "./model_weights/vae/vae_weights.pth")
+    # torch.save(vae, "./model_weights/vae/vae_weights.pth")
