@@ -64,23 +64,27 @@ if __name__ == '__main__':
     parser.add_argument('--in_dim', type=int, default=784)
     args = parser.parse_args()
     
+    # unpack arguments
     epochs, batch_size, lr, z_dim, h_dim, in_dim = args.epochs, args.batch_size, args.lr, args.z_dim, args.h_dim, args.in_dim
 
     recon_img = None
     img = None
     linspace_data = None
 
+    # dataset preparation
     file_path = "./img/vae_{}".format(z_dim)
     if not os.path.exists(file_path):
         os.makedirs(file_path)
     train_data = torchvision.datasets.MNIST(root='./data', train=True, transform=torchvision.transforms.ToTensor(), download=True)
     data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     
+    # generate evenly distributed data if hidden dimension is 2 or 1, for visualization of the manifold
     if z_dim == 2:
         linspace_data = (torch.tensor([(x, y) for y in range(20) for x in range(20)]).to(device,dtype=torch.float32).reshape((400, 2)) - 10)/2
     elif z_dim == 1:
         linspace_data = torch.linspace(-3, 3, 400).to(device,dtype=torch.float32).reshape((400, 1))
     
+    # model and optimizer
     vae = VAE(in_dim=in_dim, h_dim=h_dim, z_dim=z_dim).to(device)
     optimizer = torch.optim.Adam(vae.parameters(), lr=lr)
 
@@ -100,7 +104,7 @@ if __name__ == '__main__':
             imgs = to_img(recon_img.detach())
             path = "./img/vae_{}/epoch{}.png".format(z_dim, epoch+1)
             torchvision.utils.save_image(imgs, path, nrow=10)
-            # save evenly distributed images if hidden dimension is 2 or 1
+            # save evenly distributed images if hidden dimension is 2 or 1, for our homework assignment
             if z_dim == 2 or z_dim == 1:
                 linear_recons = vae.decode(linspace_data)
                 linear_imgs = to_img(linear_recons.detach())
